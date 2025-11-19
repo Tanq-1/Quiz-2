@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Master Gate Maze</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        :root {
+            --bg: #061223;
+            --panel: #0f1724;
+            --accent: #1f6feb;
+            --muted: #98a0b3;
+            --text: #e6eef8;
+        }
+
+        body {
+            margin: 14px;
+            font-family: Inter, system-ui, Segoe UI, Arial;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        h2 {
+            margin: 0 0 10px 0;
+        }
+
+        #wrap {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .panel {
+            background: var(--panel);
+            padding: 12px;
+            border-radius: 10px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+        }
+
+        #left {
+            width: 640px;
+        }
+
+        canvas {
+            background: #000;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button.secondary {
+            background: #233044;
+        }
+
+        select,
+        input {
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            background: #071224;
+            color: var(--text);
+        }
+
+        .info {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .sw {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            display: inline-block;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        #solutionSteps {
+            margin-top: 10px;
+            color: var(--text);
+            font-size: 14px;
+        }
+
+        #solutionSteps li {
+            margin-bottom: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Master Gate Maze</h2>
+    <div id="wrap">
+        <div id="left" class="panel">
+            <div class="controls">
+                <label>Keys (0–11):
+                    <select id="obsCount" style="margin-left:8px">
+                        <option>0</option>
+                        <option>1</option>
+                        <option>2</option>
+                        <option>3</option>
+                        <option>4</option>
+                        <option>5</option>
+                        <option>6</option>
+                        <option>7</option>
+                        <option>8</option>
+                        <option>9</option>
+                        <option>10</option>
+                        <option selected>11</option>
+                    </select>
+                </label>
+                <button id="genBtn">Generate Maze</button>
+                <button id="togglePath" class="secondary">Toggle Path Overlay</button>
+                <button id="resetBtn" class="secondary">Reset Player</button>
+                <div style="margin-left:auto;color:var(--muted)">Grid size (fixed): <strong>20 × 20</strong></div>
+            </div>
+
+            <canvas id="canvas" width="640" height="640"></canvas>
+
+            <div class="info">
+                <strong>Controls:</strong> Arrow keys / WASD to move. Collect keys (colored dots) to open the <strong>master
+                gate</strong> (gold double-square) which blocks the exit until all keys are collected (no master gate
+                if there are no keys).
+                <div class="legend">
+                    <div><span class="sw" style="background:#ff4d4f"></span> red</div>
+                    <div><span class="sw" style="background:#f97316"></span> orange</div>
+                    <div><span class="sw" style="background:#fbbf24"></span> yellow</div>
+                    <div><span class="sw" style="background:#10b981"></span> green</div>
+                    <div><span class="sw" style="background:#4ade80"></span> light green</div>
+                    <div><span class="sw" style="background:#2563eb"></span> blue</div>
+                    <div><span class="sw" style="background:#7dd3fc"></span> light blue</div>
+                    <div><span class="sw" style="background:#8b5cf6"></span> purple</div>
+                    <div><span class="sw" style="background:#fb7185"></span> pink</div>
+                    <div><span class="sw" style="background:#3838ff"></span> ultramarine</div>
+                    <div><span class="sw" style="background:#7c3aed"></span> violet</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="right" class="panel" style="min-width:340px; max-width:360px;">
+            <div><strong>Status</strong></div>
+            <div style="margin-top:8px;color:var(--muted);font-size:14px;">
+                Keys collected: <span id="keyStatus">—</span><br>
+                Player moves: <span id="moves">0</span><br>
+                Player pos: <span id="playerPos">0,0</span><br>
+                Exit pos: <span id="exitPos">—</span>
+            </div>
+
+            <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.04)">
+
+            <div><strong>Solution (solver output)</strong></div>
+            <div style="color:var(--muted);font-size:13px;margin-top:8px">When you toggle path overlay the shortest
+                valid route will be shown (overlay) and the step-by-step key pickup order below:</div>
+            <ol id="solutionSteps"></ol>
+
+            <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.04)">
+
+            <div style="color:var(--muted);font-size:13px">Notes:<br>
+                1. You are the white cirle<br> 
+                2. The <strong>gold double-square master gate ▣</strong>
+                blocks the exit physically until all keys are collected (removed if there are no keys).<br>
+                3. You can select the number of keys generated by selecting the amount on the
+                selector and then clicking the <strong>"Generate Maze"</strong> button.<br>
+                4. The <strong>"Generate Maze"</strong> button can also be used to re-randomize the maze.
+                5. Use the <strong>"Toggle Path Overlay"</strong> button to reveal the path to solve the maze
+                based on your current position.<br>
+                6. You can see the solution below the "Solution (solver output)" part.<br>
+                7. View your status such as positions and collected keys below the "Status" part. <br>
+                8. Click the <strong>"Reset Player"</strong> to return the maze to its initial state.<br>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const CANVAS = canvas.width;
+        const GRID = 20;
+        let CELL = Math.floor(CANVAS / GRID);
+
+        
+        const KEYS_COLORS = [
+            'red', 'orange', 'yellow', 'green', 'lightgreen',
+            'blue', 'lightblue', 'purple', 'pink', 'ultramarine', 'violet'
+        ];
+        const KEY_RGB = {
+            red: '#ff4d4f',
+            orange: '#f97316',
+            yellow: '#fbbf24',
+            green: '#10b981',
+            lightgreen: '#4ade80',
+            blue: '#2563eb',
+            lightblue: '#7dd3fc',
+            purple: '#8b5cf6',
+            pink: '#fb7185',
+            ultramarine: '#3838ff',
+            violet: '#7c3aed'
+        };
+
+        const MAX_PLACEMENT_TRIES = 400;
+        const MAX_GENERATION_ATTEMPTS = 8;
+        const N = 1, E = 2, S = 4, W = 8;
+        const DX = { [N]: 0, [E]: 1, [S]: 0, [W]: -1 };
+        const DY = { [N]: -1, [E]: 0, [S]: 1, [W]: 0 };
+        const OPP = { [N]: S, [E]: W, [S]: N, [W]: E };
+
+        
+        let cols = GRID, rows = GRID;
+        let maze = []; 
+        let player = { x: 0, y: 0 };
+        let exitCell = { x: cols - 1, y: rows - 1 };
+        let keyPositions = {};   
+        let masterGate = null;   
+        let collectedMask = 0;
+        let pathOverlay = [];
+        let showPath = false;
+        let moves = 0;
+
+        
+        const EXIT_COLORS = ['#ff4d4f', '#f97316', '#fbbf24', '#10b981', '#7dd3fc', '#2563eb', '#8b5cf6', '#fb7185'];
+        let exitColorIndex = 0;
+        let exitFlashInterval = null;
+
+        
+        const genBtn = document.getElementById('genBtn');
+        const togglePathBtn = document.getElementById('togglePath');
+        const resetBtn = document.getElementById('resetBtn');
+        const obsCountSel = document.getElementById('obsCount');
+        const keyStatusEl = document.getElementById('keyStatus');
+        const movesEl = document.getElementById('moves');
+        const playerPosEl = document.getElementById('playerPos');
+        const exitPosEl = document.getElementById('exitPos');
+        const solutionStepsEl = document.getElementById('solutionSteps');
+
+        
+        function idx(x, y) { return y * cols + x; }
+        function inBounds(x, y) { return x >= 0 && y >= 0 && x < cols && y < rows; }
+        function randInt(n) { return Math.floor(Math.random() * n); }
+        function shuffleArray(arr) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        
+        function generateDFS() {
+            maze = new Array(cols * rows).fill(0);
+            for (let i = 0; i < cols * rows; i++) maze[i] = N | E | S | W;
+            const visited = new Array(cols * rows).fill(false);
+
+            function carve(cx, cy) {
+                visited[idx(cx, cy)] = true;
+                const dirs = [N, E, S, W].sort(() => Math.random() - 0.5);
+                for (const d of dirs) {
+                    const nx = cx + DX[d], ny = cy + DY[d];
+                    if (!inBounds(nx, ny)) continue;
+                    if (!visited[idx(nx, ny)]) { maze[idx(cx, cy)] &= ~d; maze[idx(nx, ny)] &= ~OPP[d]; carve(nx, ny); }
+                }
+            }
+            const sx = randInt(cols), sy = randInt(rows);
+            carve(sx, sy);
+        }
+
+        
+        function addCycles(percent = 0.08) {
+            const targetRemovals = Math.max(2, Math.floor(cols * rows * percent));
+            let removals = targetRemovals;
+            let tries = 0;
+            const maxTries = targetRemovals * 12 + 200;
+            while (removals > 0 && tries < maxTries) {
+                tries++;
+                const x = randInt(cols);
+                const y = randInt(rows);
+                const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]].sort(() => Math.random() - 0.5);
+                for (const d of dirs) {
+                    const nx = x + d[0], ny = y + d[1];
+                    if (!inBounds(nx, ny)) continue;
+                    let dirBit = null, oppBit = null;
+                    if (nx === x + 1 && ny === y) { dirBit = E; oppBit = W; }
+                    else if (nx === x - 1 && ny === y) { dirBit = W; oppBit = E; }
+                    else if (nx === x && ny === y + 1) { dirBit = S; oppBit = N; }
+                    else if (nx === x && ny === y - 1) { dirBit = N; oppBit = S; }
+                    if (!dirBit) continue;
+                    if ((maze[idx(x, y)] & dirBit) !== 0) {
+                        maze[idx(x, y)] &= ~dirBit;
+                        maze[idx(nx, ny)] &= ~oppBit;
+                        removals--;
+                        break;
+                    }
+                }
+            }
+        }
+
+        
+        function findMainPathFrom(sx, sy) {
+            const q = [{ x: sx, y: sy }];
+            const parent = new Map();
+            parent.set(`${sx},${sy}`, null);
+            let far = { x: sx, y: sy };
+            while (q.length) {
+                const cur = q.shift();
+                far = cur;
+                const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+                for (const d of dirs) {
+                    const nx = cur.x + d[0], ny = cur.y + d[1];
+                    if (!inBounds(nx, ny)) continue;
+                    let dir = null;
+                    if (d[0] === 0 && d[1] === -1) dir = N;
+                    else if (d[0] === 1 && d[1] === 0) dir = E;
+                    else if (d[0] === 0 && d[1] === 1) dir = S;
+                    else dir = W;
+                    if (maze[idx(cur.x, cur.y)] & dir) continue;
+                    const key = `${nx},${ny}`;
+                    if (!parent.has(key)) { parent.set(key, `${cur.x},${cur.y}`); q.push({ x: nx, y: ny }); }
+                }
+            }
+            const path = [];
+            let curKey = `${far.x},${far.y}`;
+            while (curKey) {
+                const [px, py] = curKey.split(',').map(Number);
+                path.push({ x: px, y: py });
+                curKey = parent.get(curKey);
+            }
+            path.reverse();
+            return path;
+        }
+
+        
+        function reachableCellsFrom(sx, sy) {
+            const q = [{ x: sx, y: sy }];
+            const vis = new Set([`${sx},${sy}`]);
+            const out = [];
+            while (q.length) {
+                const cur = q.shift();
+                out.push(cur);
+                const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+                for (const d of dirs) {
+                    const nx = cur.x + d[0], ny = cur.y + d[1];
+                    if (!inBounds(nx, ny)) continue;
+                    let dir = null;
+                    if (d[0] === 0 && d[1] === -1) dir = N;
+                    else if (d[0] === 1 && d[1] === 0) dir = E;
+                    else if (d[0] === 0 && d[1] === 1) dir = S;
+                    else dir = W;
+                    if (maze[idx(cur.x, cur.y)] & dir) continue;
+                    const key = `${nx},${ny}`;
+                    if (!vis.has(key)) { vis.add(key); q.push({ x: nx, y: ny }); }
+                }
+            }
+            return out;
+        }
+
+        
+        function randomFreeCell(excludeSet) {
+            const tries = 500;
+            for (let t = 0; t < tries; t++) {
+                const x = randInt(cols), y = randInt(rows);
+                const k = `${x},${y}`;
+                if (excludeSet.has(k)) continue;
+                return { x, y };
+            }
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const k = `${x},${y}`;
+                    if (!excludeSet.has(k)) return { x, y };
+                }
+            }
+            return null;
+        }
+
+        
+        function placeKeysAndMasterGate(numKeys) {
+            keyPositions = {};
+            masterGate = null;
+            collectedMask = 0;
+
+            const reachable = reachableCellsFrom(player.x, player.y);
+            const reachableList = Array.from(reachable);
+
+            const mainPath = findMainPathFrom(player.x, player.y);
+            if (mainPath.length < 4) return false;
+
+        
+            const last = mainPath[mainPath.length - 1];
+            exitCell = { x: last.x, y: last.y };
+
+        
+            if (numKeys > 0) {
+            
+                masterGate = { x: exitCell.x, y: exitCell.y, open: false };
+            } else {
+                masterGate = null;
+            }
+
+        
+            const exclude = new Set();
+            exclude.add(`${player.x},${player.y}`);
+            exclude.add(`${exitCell.x},${exitCell.y}`);
+            if (masterGate) exclude.add(`${masterGate.x},${masterGate.y}`);
+
+        
+            const pool = shuffleArray(reachableList).filter(c => {
+                const s = `${c.x},${c.y}`;
+                if (exclude.has(s)) return false;
+                if (Math.abs(c.x - player.x) + Math.abs(c.y - player.y) < 2) return false;
+                if (Math.abs(c.x - exitCell.x) + Math.abs(c.y - exitCell.y) < 2) return false;
+                return true;
+            });
+
+            let placed = 0;
+            const maxKeys = Math.min(KEYS_COLORS.length, Math.max(0, numKeys));
+            for (const c of pool) {
+                if (placed >= maxKeys) break;
+                const color = KEYS_COLORS[placed];
+                keyPositions[color] = { x: c.x, y: c.y };
+                exclude.add(`${c.x},${c.y}`);
+                placed++;
+            }
+        
+            for (let i = placed; i < maxKeys; i++) {
+                const cell = randomFreeCell(exclude);
+                if (!cell) break;
+                const color = KEYS_COLORS[i];
+                keyPositions[color] = { x: cell.x, y: cell.y };
+                exclude.add(`${cell.x},${cell.y}`);
+            }
+
+        
+            for (const col in keyPositions) {
+                const k = keyPositions[col];
+                if ((k.x === player.x && k.y === player.y) || (k.x === exitCell.x && k.y === exitCell.y)) {
+                    return false;
+                }
+            }
+
+        
+            const ok = solveBFS_internal({ x: player.x, y: player.y, keysMask: 0 }, true);
+            if (ok) return true;
+            return false;
+        }
+
+        function solveBFS_internal(startState, simpleFlag = false) {
+            const totalKeys = Object.keys(keyPositions).length;
+            const allMask = totalKeys > 0 ? ((1 << totalKeys) - 1) : 0;
+
+            const gx = exitCell.x, gy = exitCell.y;
+            const q = [];
+            const parent = new Map();
+            const startKey = `${startState.x},${startState.y},${startState.keysMask}`;
+            q.push(startState);
+            parent.set(startKey, null);
+
+            while (q.length) {
+                const cur = q.shift();
+                if (cur.x === gx && cur.y === gy) {
+                    if (cur.keysMask === allMask) {
+                        if (simpleFlag) return true;
+                        const keystr = `${cur.x},${cur.y},${cur.keysMask}`;
+                        const path = [];
+                        let p = keystr;
+                        while (p) {
+                            const parts = p.split(',');
+                            path.push({ x: Number(parts[0]), y: Number(parts[1]), keysMask: Number(parts[2]) });
+                            p = parent.get(p);
+                        }
+                        path.reverse();
+                        return path;
+                    } else {
+                    
+                    }
+                }
+                const deltas = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+                for (const d of deltas) {
+                    const nx = cur.x + d[0], ny = cur.y + d[1];
+                    if (!inBounds(nx, ny)) continue;
+                    let dir = null;
+                    if (d[0] === 0 && d[1] === -1) dir = N;
+                    else if (d[0] === 1 && d[1] === 0) dir = E;
+                    else if (d[0] === 0 && d[1] === 1) dir = S;
+                    else dir = W;
+                    if (maze[idx(cur.x, cur.y)] & dir) continue;
+                
+                    if (masterGate && nx === masterGate.x && ny === masterGate.y) {
+                        if (cur.keysMask !== allMask) continue;
+                    }
+                    let newKeys = cur.keysMask;
+                    for (const [i, color] of KEYS_COLORS.entries()) {
+                        const kp = keyPositions[color];
+                        if (kp && kp.x === nx && kp.y === ny) {
+                            const bit = 1 << i;
+                            newKeys = cur.keysMask | bit;
+                        }
+                    }
+                
+                    if (nx === gx && ny === gy && newKeys !== allMask) continue;
+
+                    const nKey = `${nx},${ny},${newKeys}`;
+                    if (!parent.has(nKey)) {
+                        parent.set(nKey, `${cur.x},${cur.y},${cur.keysMask}`);
+                        q.push({ x: nx, y: ny, keysMask: newKeys });
+                    }
+                }
+            }
+            return null;
+        }
+
+        
+        function solveBFS() {
+            const result = solveBFS_internal({ x: player.x, y: player.y, keysMask: collectedMask }, false);
+            if (!result) return null;
+            const simplePath = result.map(s => ({ x: s.x, y: s.y }));
+            const keyOrder = [];
+            let prevMask = result[0].keysMask;
+            for (let i = 1; i < result.length; i++) {
+                const curMask = result[i].keysMask;
+                if (curMask !== prevMask) {
+                    for (let b = 0; b < KEYS_COLORS.length; b++) {
+                        const bit = 1 << b;
+                        if ((prevMask & bit) === 0 && (curMask & bit) !== 0) {
+                            keyOrder.push({ color: KEYS_COLORS[b], pos: { x: result[i].x, y: result[i].y } });
+                        }
+                    }
+                    prevMask = curMask;
+                }
+            }
+            return { path: simplePath, keyOrder };
+        }
+
+        
+        function startExitFlashing() {
+            stopExitFlashing();
+            exitFlashInterval = setInterval(() => {
+                exitColorIndex = (exitColorIndex + 1) % EXIT_COLORS.length;
+                draw();
+            }, 300);
+        }
+        function stopExitFlashing() {
+            if (exitFlashInterval) { clearInterval(exitFlashInterval); exitFlashInterval = null; }
+        }
+
+        
+        function draw() {
+            CELL = Math.floor(CANVAS / GRID);
+            ctx.clearRect(0, 0, CANVAS, CANVAS);
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, CANVAS, CANVAS);
+
+        
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const px = x * CELL, py = y * CELL;
+                    ctx.fillStyle = '#071127';
+                    ctx.fillRect(px, py, CELL, CELL);
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = Math.max(2, Math.floor(CELL * 0.12));
+                    const w = maze[idx(x, y)];
+                    ctx.beginPath();
+                    if (w & N) { ctx.moveTo(px, py); ctx.lineTo(px + CELL, py); }
+                    if (w & E) { ctx.moveTo(px + CELL, py); ctx.lineTo(px + CELL, py + CELL); }
+                    if (w & S) { ctx.moveTo(px, py + CELL); ctx.lineTo(px + CELL, py + CELL); }
+                    if (w & W) { ctx.moveTo(px, py); ctx.lineTo(px, py + CELL); }
+                    ctx.stroke();
+                }
+            }
+
+        
+            for (const color of KEYS_COLORS) {
+                const kp = keyPositions[color];
+                if (!kp) continue;
+                const bit = 1 << KEYS_COLORS.indexOf(color);
+                if ((collectedMask & bit) !== 0) continue; 
+                const cx = kp.x * CELL + CELL / 2, cy = kp.y * CELL + CELL / 2;
+                ctx.beginPath();
+                ctx.fillStyle = KEY_RGB[color] || color;
+                ctx.arc(cx, cy, Math.max(5, CELL * 0.18), 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#071127';
+                ctx.fillRect(cx - Math.max(2, CELL * 0.06), cy - Math.max(2, CELL * 0.06), Math.max(4, CELL * 0.12), Math.max(4, CELL * 0.12));
+            }
+
+        
+            if (masterGate && !masterGate.open) {
+                const px = masterGate.x * CELL, py = masterGate.y * CELL;
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(px + CELL * 0.10, py + CELL * 0.10, CELL * 0.80, CELL * 0.80);
+                ctx.fillStyle = '#000000';
+                ctx.font = `${Math.max(12, Math.floor(CELL * 0.5))}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('▣', px + CELL / 2, py + CELL / 2);
+            } else {
+            
+                const ec = EXIT_COLORS[exitColorIndex];
+                ctx.fillStyle = ec;
+                ctx.fillRect(exitCell.x * CELL + CELL * 0.18, exitCell.y * CELL + CELL * 0.18, CELL * 0.64, CELL * 0.64);
+            }
+
+        
+            if (showPath && pathOverlay && pathOverlay.length) {
+                ctx.strokeStyle = '#7dd3fc';
+                ctx.lineWidth = Math.max(2, Math.floor(CELL * 0.14));
+                ctx.beginPath();
+                for (let i = 0; i < pathOverlay.length; i++) {
+                    const p = pathOverlay[i];
+                    const cx = p.x * CELL + CELL / 2, cy = p.y * CELL + CELL / 2;
+                    if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+                }
+                ctx.stroke();
+            }
+
+        
+            const px = player.x * CELL + CELL / 2, py = player.y * CELL + CELL / 2;
+            ctx.beginPath();
+            ctx.fillStyle = '#ffffff';
+            ctx.arc(px, py, Math.max(6, CELL * 0.20), 0, Math.PI * 2);
+            ctx.fill();
+
+            updateHUD();
+        }
+
+        
+        function updateHUD() {
+            const presentKeys = Object.keys(keyPositions);
+            if (presentKeys.length === 0) keyStatusEl.textContent = '—';
+            else {
+                const arr = presentKeys.map((col) => {
+                    const idxc = KEYS_COLORS.indexOf(col);
+                    const bit = 1 << idxc;
+                    return ((collectedMask & bit) ? `✅ ${col}` : `◻️ ${col}`);
+                });
+                keyStatusEl.textContent = arr.join('   ');
+            }
+            movesEl.textContent = moves;
+            playerPosEl.textContent = `${player.x},${player.y}`;
+            exitPosEl.textContent = `${exitCell.x},${exitCell.y}`;
+        }
+
+
+        function canMove(cx, cy, dx, dy) {
+            const nx = cx + dx, ny = cy + dy;
+            if (!inBounds(nx, ny)) return false;
+            let dir = null;
+            if (dx === 0 && dy === -1) dir = N;
+            else if (dx === 1 && dy === 0) dir = E;
+            else if (dx === 0 && dy === 1) dir = S;
+            else dir = W;
+            if (maze[idx(cx, cy)] & dir) return false;
+
+        
+            if (masterGate && nx === masterGate.x && ny === masterGate.y) {
+                const totalKeys = Object.keys(keyPositions).length;
+                const allMask = totalKeys > 0 ? ((1 << totalKeys) - 1) : 0;
+                if (collectedMask !== allMask) return false;
+            }
+            return true;
+        }
+
+
+        function movePlayer(dx, dy) {
+            if (canMove(player.x, player.y, dx, dy)) {
+                player.x += dx; player.y += dy; moves++;
+
+            
+                for (const [i, color] of KEYS_COLORS.entries()) {
+                    const kp = keyPositions[color];
+                    if (kp && kp.x === player.x && kp.y === player.y) {
+                        const bit = 1 << i;
+                        if ((collectedMask & bit) === 0) {
+                            collectedMask |= bit;
+                            flashMessage(`Collected ${color} key`);
+                        }
+                    }
+                }
+
+            
+                const totalKeys = Object.keys(keyPositions).length;
+                const allMask = totalKeys > 0 ? ((1 << totalKeys) - 1) : 0;
+                if (masterGate && !masterGate.open && collectedMask === allMask) {
+                    masterGate.open = true;
+                    flashMessage('Master gate unlocked — exit is now open');
+                }
+
+            
+                if (showPath) {
+                    showPath = false;
+                    pathOverlay = [];
+                    solutionStepsEl.innerHTML = '';
+                } else {
+                    pathOverlay = []; 
+                }
+
+                draw();
+                if (player.x === exitCell.x && player.y === exitCell.y) {
+                    flashMessage('You reached the exit! Try another maze');
+                }
+            }
+        }
+
+        
+        function flashMessage(txt) {
+            const el = document.createElement('div');
+            el.textContent = txt;
+            el.style.position = 'fixed';
+            el.style.left = '50%';
+            el.style.top = '8%';
+            el.style.transform = 'translateX(-50%)';
+            el.style.background = '#0b1220';
+            el.style.padding = '8px 12px';
+            el.style.border = '1px solid rgba(255,255,255,0.04)';
+            el.style.borderRadius = '8px';
+            el.style.zIndex = 9999;
+            document.body.appendChild(el);
+            setTimeout(() => { el.style.transition = 'opacity 450ms'; el.style.opacity = '0'; setTimeout(() => el.remove(), 500); }, 1000);
+        }
+
+        
+        window.addEventListener('keydown', (e) => {
+            const k = e.key;
+            if (['ArrowUp', 'w', 'W'].includes(k)) { movePlayer(0, -1); e.preventDefault(); }
+            else if (['ArrowDown', 's', 'S'].includes(k)) { movePlayer(0, 1); e.preventDefault(); }
+            else if (['ArrowLeft', 'a', 'A'].includes(k)) { movePlayer(-1, 0); e.preventDefault(); }
+            else if (['ArrowRight', 'd', 'D'].includes(k)) { movePlayer(1, 0); e.preventDefault(); }
+        });
+
+        
+        async function generateSolvableMaze() {
+            let attempt = 0;
+            while (attempt < MAX_GENERATION_ATTEMPTS) {
+                generateDFS();
+                addCycles(0.08);
+
+                player = { x: 0, y: 0 };
+                exitCell = { x: cols - 1, y: rows - 1 };
+                moves = 0;
+                collectedMask = 0;
+                pathOverlay = [];
+                solutionStepsEl.innerHTML = '';
+
+                const numKeys = Math.min(KEYS_COLORS.length, Math.max(0, parseInt(obsCountSel.value)));
+                let ok = false;
+                let tries = 0;
+                while (!ok && tries < MAX_PLACEMENT_TRIES) {
+                    tries++;
+                    ok = placeKeysAndMasterGate(numKeys);
+                }
+                if (ok) {
+                    if (masterGate) masterGate.open = false;
+                    startExitFlashing();
+                    draw();
+                    updateHUD();
+                    return true;
+                }
+                attempt++;
+            }
+        
+            keyPositions = {}; masterGate = null; collectedMask = 0; pathOverlay = [];
+            startExitFlashing();
+            draw();
+            flashMessage('Failed to place keys solvably — generated clean maze.');
+            return false;
+        }
+
+        togglePathBtn.addEventListener('click', () => {
+            showPath = !showPath;
+            solutionStepsEl.innerHTML = '';
+            if (showPath) {
+                const sol = solveBFS();
+                if (!sol) {
+                    flashMessage('No solution found (something went wrong).');
+                    pathOverlay = [];
+                    showPath = false;
+                    draw();
+                    return;
+                }
+                pathOverlay = sol.path;
+            
+                const steps = [];
+                for (let i = 0; i < sol.keyOrder.length; i++) {
+                    steps.push(`Step ${i + 1}: Get ${sol.keyOrder[i].color.toUpperCase()} key at (${sol.keyOrder[i].pos.x},${sol.keyOrder[i].pos.y})`);
+                }
+                if (masterGate) steps.push(`Then: Go to the master gate ▣ (exit) at (${masterGate.x},${masterGate.y}), then step onto exit after it's open`);
+                else steps.push(`Final: Reach exit at (${exitCell.x},${exitCell.y})`);
+                for (const s of steps) {
+                    const li = document.createElement('li');
+                    li.textContent = s;
+                    solutionStepsEl.appendChild(li);
+                }
+            } else {
+                pathOverlay = [];
+            }
+            draw();
+        });
+
+        
+        resetBtn.addEventListener('click', () => {
+            player = { x: 0, y: 0 };
+            collectedMask = 0;
+            moves = 0;
+            pathOverlay = [];
+            solutionStepsEl.innerHTML = '';
+            if (masterGate) masterGate.open = false;
+            draw();
+        });
+
+        
+        genBtn.addEventListener('click', async () => {
+            genBtn.disabled = true; genBtn.textContent = 'Generating...';
+            await new Promise(r => setTimeout(r, 20));
+            await generateSolvableMaze();
+            genBtn.disabled = false; genBtn.textContent = 'Generate Maze';
+        });
+
+        
+        generateSolvableMaze();
+        setTimeout(() => { draw(); }, 50);
+
+        
+        window.addEventListener('unload', () => { stopExitFlashing(); });
+    </script>
+</body>
+
+</html>
