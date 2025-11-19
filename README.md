@@ -5,15 +5,19 @@ Master Gate Maze is a browser-based maze game where the player navigates a grid,
 ## How to run
 
 - Download the index.html file
+  
   <img width="2557" height="1301" alt="image" src="https://github.com/user-attachments/assets/82f1bf95-e8fe-4639-9a0d-90d1a72c0163" />
 
 - Right click on the file and choose "Open with"
+  
   <img width="400" height="324" alt="image" src="https://github.com/user-attachments/assets/773569ec-0457-4858-a721-e050bbe36d2a" />
 
 - Choose a browser you want to open the file with
+  
   <img width="473" height="536" alt="image" src="https://github.com/user-attachments/assets/31bdc00a-9406-49ad-9dff-4e504fac7b11" />
 
 - The game should appear like so
+  
   <img width="940" height="752" alt="image" src="https://github.com/user-attachments/assets/bdb5d946-4d9c-4bbb-8908-dc851eb45b2b" />
 
 ## Game Objective
